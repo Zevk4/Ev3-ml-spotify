@@ -1,298 +1,389 @@
-# Inteligencia Musical y Predicción de Popularidad de Canciones (Spotify Tracks)
+# Inteligencia musical y predicción de popularidad de canciones
 
-Proyecto integral de Machine Learning aplicado a la industria del streaming musical. A través de la metodología CRISP-DM, se abordan la segmentación no supervisada del catálogo, la clasificación de tracks por niveles de demanda y la regresión continua del puntaje de popularidad, mitigando el riesgo de sobreajuste y previniendo la fuga de datos (*data leakage*).
+**Spotify Tracks · Proyecto de Machine Learning · Duoc UC · 2026**
 
----
+[Repositorio](https://github.com/Zevk4/Ev3-ml-spotify) · [Notebooks](notebooks/) · [Resultados](data/) · [Informe técnico](reports/Informe_Machine_Learning.md) · [Presentación](reports/Presentacion_EP3_Spotify.pptx)
 
-## 1. Descripción del Problema de Negocio
+> **Resumen.** Este proyecto aplica la metodología **CRISP-DM** al conjunto de datos Spotify Tracks para estudiar perfiles acústicos de canciones, clasificar sus niveles de popularidad y estimar su puntaje de popularidad. Combina aprendizaje no supervisado (**K-Means**) y supervisado (**Decision Tree, Random Forest e HistGradientBoosting**), con comparación de modelos, optimización y evaluación de generalización. Sus resultados son herramientas de **apoyo al análisis**, no una garantía de éxito comercial futuro.
 
-En un catálogo masivo como el provisto por **Spotify Tracks**, evaluar manualmente cada pista para tomar decisiones de curaduría, inclusión en listas editoriales y distribución presupuestaria resulta inviable operativa y económicamente. Asimismo, las características acústicas individuales (tempo, bailabilidad, volumen) no garantizan de forma univariada el éxito de una composición.
+| Pistas únicas analizadas | Clasificación: F1 macro en prueba | Regresión: MAE en prueba | Segmentación |
+|:---:|:---:|:---:|:---:|
+| **89.741** | **0,7007** | **11,15 puntos** | **4 perfiles acústicos** |
+| Tras deduplicación por `track_id` | Random Forest optimizado | HistGradientBoosting optimizado | K-Means con variables estandarizadas |
 
-El problema consiste en determinar hasta qué punto las señales acústicas y los metadatos disponibles permiten modelar la popularidad y extraer arquetipos sonoros homogéneos que sirvan de soporte analítico.
+**Alcance de la evidencia:** los valores incluidos a continuación provienen de los resultados exportados en `data/` y de los notebooks del repositorio. No representan una nueva ejecución independiente ni el desempeño de un sistema desplegado en producción.
 
-### Delimitación y Alcance Ético
+## Contenido
 
-* **Apoyo analítico, no determinismo:** Los modelos no aseguran el éxito futuro ni certifican que una campaña incrementará reproducciones de forma causal.
-* **Factores externos ausentes:** La popularidad en streaming depende fuertemente de variables no contenidas en el dataset (presupuesto publicitario, exposición en redes sociales, trayectoria del artista o viralidad coyuntural).
-* **Separación cualitativa:** La métrica de popularidad refleja tracción de consumo dentro de la plataforma, mas no la calidad artística o el valor cultural de una obra.
-
----
-
-## 2. Objetivos del Proyecto
-
-* **Objetivo General:** Desarrollar, optimizar y comparar modelos de aprendizaje automático supervisado (clasificación y regresión) y no supervisado (clustering) sobre el catálogo de Spotify para orientar la selección estratégica y el análisis estructural del contenido.
-* **Objetivos Específicos:**
-1. Ejecutar una auditoría de integridad criptográfica (SHA-256), depuración de duplicados por pista y tratamiento justificado de *outliers* sin distorsionar la variabilidad musical real.
-2. Implementar un modelo de agrupamiento con **K-Means** sobre variables acústicas estandarizadas, determinando el número óptimo de clusters mediante el análisis combinado del método del codo y el coeficiente de silueta.
-3. Construir y calibrar modelos de **clasificación multiclase** (Decision Tree vs. Random Forest) para identificar pistas de popularidad alta, priorizando la tasa de recuperación de hits.
-4. Implementar y evaluar modelos de **regresión continua** (Decision Tree vs. HistGradientBoosting) para predecir el índice exacto de popularidad (0–100) minimizando el error absoluto.
-5. Formular recomendaciones de negocio e hipótesis operativas a partir de los patrones descubiertos, previniendo sesgos de exclusión sistemática de géneros subrepresentados.
-
----
-
-## 3. Definición de KPIs de Negocio
-
-Para medir el impacto técnico y la utilidad analítica de cada componente según los requerimientos de evaluación, se establecen tres indicadores clave:
-
-| Área Analítica | KPI Primario | Definición Técnica | Propósito en el Negocio |
-| --- | --- | --- | --- |
-| **Clasificación** | **Recall (Popularidad Alta)** | $\frac{TP_{\text{alta}}}{TP_{\text{alta}} + FN_{\text{alta}}}$ | Medir la proporción de canciones exitosas reales que el sistema logra rescatar para evaluación prioritaria (minimizar falsos descartes). |
-| **Regresión** | **MAE (Mean Absolute Error)** | $\frac{1}{n}\sum_{i=1}^{n} \vert{}y_i - \hat{y}_i\vert{}$ | Cuantificar la desviación promedio de la estimación en puntos directos de la escala de popularidad (0 a 100), complementado con $R^2$. |
-| **Segmentación** | **Silhouette Score** | $\frac{b(i) - a(i)}{\max(a(i), b(i))}$ | Evaluar la cohesión intra-cluster frente a la separación inter-cluster de los perfiles acústicos descubiertos. |
+- [1. Contexto del negocio y objetivos](#1-contexto-del-negocio-y-objetivos)
+- [2. Indicadores de desempeño](#2-indicadores-de-desempeño)
+- [3. Datos y análisis exploratorio](#3-datos-y-análisis-exploratorio)
+- [4. Preparación y transformaciones](#4-preparación-y-transformaciones)
+- [5. Metodología CRISP-DM](#5-metodología-crisp-dm)
+- [6. Desarrollo y resultados de los modelos](#6-desarrollo-y-resultados-de-los-modelos)
+- [7. Optimización, ensambles y generalización](#7-optimización-ensambles-y-generalización)
+- [8. Selección de modelos y conclusiones](#8-selección-de-modelos-y-conclusiones)
+- [9. Limitaciones, sesgos y uso responsable](#9-limitaciones-sesgos-y-uso-responsable)
+- [10. Recomendaciones para el negocio](#10-recomendaciones-para-el-negocio)
+- [11. Stack tecnológico](#11-stack-tecnológico)
+- [12. Organización y ejecución del repositorio](#12-organización-y-ejecución-del-repositorio)
+- [13. Matriz de responsabilidades](#13-matriz-de-responsabilidades)
+- [14. Trazabilidad y mejoras futuras](#14-trazabilidad-y-mejoras-futuras)
 
 ---
 
-## 4. Fuentes de Datos y Análisis Exploratorio (EDA)
+## 1. Contexto del negocio y objetivos
 
-### Origen y Calidad de los Datos
+### Problema de negocio
 
-* **Dataset:** *Spotify Tracks Dataset* (`Spotify_Tracks_Dataset.csv`), compuesto originalmente por 114.000 observaciones y 21 atributos descriptivos y acústicos.
-* **Auditoría e Integridad:** Verificación criptográfica mediante hash SHA-256 (`b202fa4990c...`) en la ingesta para garantizar reproducibilidad e inmutabilidad.
-* **Deduplicación:** Se eliminaron 24.259 registros duplicados basados en `track_id` (conservando la primera aparición), consolidando un corpus maestro de **89.741 pistas únicas**. Esto impide que temas repetidos por variación de género aparezcan simultáneamente en entrenamiento y prueba, eliminando el riesgo de fuga de datos.
-* **Limpieza de Columnas:** Exclusión de índices espurios (`Unnamed: 0`) y atributos nominales de alta cardinalidad con valores nulos marginales (`artists`, `album_name`, `track_name`), los cuales no ingresan al espacio de características para evitar sesgos de memorización.
+En un catálogo musical amplio, identificar patrones de consumo potencial y priorizar el análisis de canciones únicamente mediante revisión manual resulta difícil de escalar. Las características acústicas —como tempo, bailabilidad, sonoridad y valencia— pueden aportar señales sobre el contenido, pero por sí solas no explican toda su popularidad.
 
-### Hallazgos del EDA
+Este proyecto aborda tres preguntas complementarias:
 
-* **Distribución de Popularidad:** Media de 33,2 puntos y mediana de 33 puntos, mostrando una asimetría positiva donde los temas altamente exitosos constituyen una minoría dentro de la plataforma.
-* **Tratamiento de Outliers:** Se detectaron distribuciones asimétricas en `duration_ms` (pistas instrumentales de hasta 80 minutos), `speechiness` y `liveness`. Se decidió **no eliminar ni truncar outliers**; en música, pistas extensas o grabaciones en vivo constituyen variaciones legítimas del dominio y no errores de captura.
-* **No-linealidad y Multicolinealidad:** Ninguna característica acústica individual presentó correlación de Spearman superior a 0,13 frente a `popularity`. Adicionalmente, se retiró la variable `energy` del conjunto predictor por redundancia y alta colinealidad con `loudness` y `acousticness`.
+1. **Segmentación:** ¿qué perfiles acústicos se distinguen dentro del catálogo?
+2. **Clasificación:** ¿es posible identificar canciones de popularidad **baja, media o alta** a partir de sus características?
+3. **Regresión:** ¿con qué error se puede estimar el valor de `popularity` en una escala de **0 a 100**?
 
----
+La variable `popularity` representa un indicador disponible en el dataset. No equivale a una predicción causal de reproducciones futuras, a una medida de calidad artística ni a una evaluación del impacto de campañas.
 
-## 5. Metodología Utilizada (CRISP-DM)
+### Objetivo general
 
-El proyecto adoptó las seis fases del estándar de minería de datos CRISP-DM:
+Desarrollar, optimizar y comparar modelos supervisados y no supervisados, siguiendo CRISP-DM, para extraer patrones acústicos y generar información útil en el análisis, curaduría y priorización de contenidos musicales.
+
+### Objetivos específicos
+
+1. Verificar la integridad del dataset, analizar su calidad y depurar registros duplicados por canción.
+2. Identificar segmentos mediante K-Means y caracterizar sus diferencias acústicas.
+3. Evaluar **Decision Tree** y **Random Forest** para clasificar niveles de popularidad.
+4. Comparar **Decision Tree Regressor** y **HistGradientBoosting Regressor** para estimar la popularidad continua.
+5. Examinar el efecto de la optimización de hiperparámetros, las técnicas de ensamble y el comportamiento de los modelos fuera de entrenamiento.
+6. Formular recomendaciones de negocio fundamentadas, reconociendo la incertidumbre, los sesgos y los límites de inferencia.
+
+## 2. Indicadores de desempeño
+
+| Área | Indicador | Interpretación | Uso analítico |
+|---|---|---|---|
+| Clasificación | **F1 macro** | Promedio del F1 de cada clase, sin ponderar por su frecuencia. **Mayor es mejor**. | Comparar modelos multiclase de forma equilibrada. |
+| Clasificación de popularidad alta | **Recall y precisión** | Recall: proporción de canciones populares detectadas. Precisión: proporción de alertas correctas. | Analizar el compromiso entre oportunidades identificadas y falsas alarmas. |
+| Regresión | **MAE** | Promedio de errores absolutos, en puntos de popularidad. **Menor es mejor**. | Cuantificar la distancia habitual entre valor real y estimado. |
+| Regresión | **R²** | Proporción de variabilidad explicada en el conjunto evaluado. **Mayor es mejor**. | Complementar el MAE con capacidad explicativa. |
+| Segmentación | **Silueta e inercia** | Miden, respectivamente, separación relativa de grupos y compactación interna. | Contrastar soluciones de agrupamiento y justificar la granularidad elegida. |
+
+La elección de un modelo considera tanto sus métricas como su capacidad de generalización y la utilidad práctica de sus resultados. **Una métrica de clasificación no es directamente comparable con una de regresión**, porque resuelven tareas distintas.
+
+## 3. Datos y análisis exploratorio
+
+### Fuente y calidad de los datos
+
+- **Dataset:** [`Spotify_Tracks_Dataset.csv`](data/raw/Spotify_Tracks_Dataset.csv), con aproximadamente **114.000 registros y 21 atributos** en su versión original.
+- **Integridad:** los notebooks incorporan una comprobación **SHA-256** para contrastar el archivo cargado con la versión prevista.
+- **Deduplicación:** se eliminaron **24.259 filas repetidas** según `track_id` y se conservó la primera aparición, obteniendo **89.741 canciones únicas**.
+- **Datos preparados:** [`Spotify_Tracks_Procesado.csv`](data/processed/Spotify_Tracks_Procesado.csv).
+
+La deduplicación evita que una misma pista esté repetida bajo varios registros, aunque también implica que **se conserva una sola de sus posibles asociaciones de género**. Esto debe considerarse al interpretar `track_genre`.
+
+### Variables examinadas
+
+La exploración contempla características acústicas (`danceability`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `loudness`, `speechiness`, `tempo`, `duration_ms`), atributos musicales/categóricos (`key`, `mode`, `time_signature`, `explicit`, `track_genre`) y la variable objetivo `popularity`.
+
+Se revisaron distribuciones, correlaciones, calidad de registros, valores faltantes y posibles observaciones extremas. La popularidad presenta una distribución heterogénea, mientras que las relaciones individuales entre atributos acústicos y popularidad son limitadas; de ahí el interés en métodos multivariados y no lineales.
+
+**Valores extremos.** El EDA estudia distintas decisiones de preparación. Los modelos principales conservan observaciones acústicas plausibles que podrían corresponder a canciones de duración inusual, grabaciones en vivo u otros contenidos legítimos, en lugar de eliminar automáticamente estos casos.
+
+**Evidencia principal:** [`01_eda_limpieza_datos.ipynb`](notebooks/01_eda_limpieza_datos.ipynb).
+
+## 4. Preparación y transformaciones
+
+| Decisión | Aplicación |
+|---|---|
+| Depuración | Eliminación de `Unnamed: 0` cuando existe y deduplicación por `track_id`. |
+| Identificadores y texto | `track_id`, `artists`, `album_name` y `track_name` se excluyen de los predictores principales para limitar la memorización de entidades. |
+| Selección de variables | Se omite `energy` del conjunto predictor supervisado, conforme a la decisión de redundancia documentada en el análisis. |
+| Segmentación | Imputación de atributos acústicos y estandarización mediante `StandardScaler`, necesarias para el enfoque de distancias de K-Means. |
+| Clasificación | `OneHotEncoder` para categorías de baja cardinalidad y `TargetEncoder` para `track_genre`, integrado dentro del pipeline. |
+| Regresión | Imputación y codificación `OneHotEncoder` dentro del pipeline; los modelos basados en árboles no exigen escalado numérico como requisito general. |
+| Separación de datos | División de entrenamiento/prueba y procedimientos de validación para evaluar capacidad de generalización. |
+
+En clasificación, `popularity` se transforma en tres categorías: **baja (0–24)**, **media (25–49)** y **alta (50–100)**. En regresión, se conserva el objetivo continuo.
+
+**Consideración de comparabilidad:** las particiones guardadas por los distintos notebooks no deben asumirse idénticas solo por compartir una semilla aleatoria. La clasificación multiclase utiliza estratificación; antes de un experimento conjunto es necesario comprobar los identificadores de cada conjunto. Asimismo, las transformaciones que aprenden parámetros de los datos deben ajustarse dentro del entrenamiento y de cada pliegue de validación.
+
+## 5. Metodología CRISP-DM
 
 ```mermaid
 flowchart LR
-    A[Comprensión del Negocio] --> B[Comprensión de los Datos]
-    B --> C[Preparación de Datos]
+    A[Comprensión del negocio] --> B[Comprensión de los datos]
+    B --> C[Preparación]
     C --> D[Modelado]
     D --> E[Evaluación]
-    E --> F[Despliegue y Reproducibilidad]
-    E -. Retroalimentación .-> C
-
+    E --> F[Entrega y documentación]
+    E -. Revisión iterativa .-> C
 ```
 
-1. **Comprensión del Negocio:** Formulación del problema de estimación y segmentación de catálogo, delimitación de KPIs operativos y consideración del impacto ético/comercial.
-2. **Comprensión de los Datos:** Exploración univariada y multivariada, análisis de asimetrías, detección de anomalías y cálculo de correlaciones monótonas.
-3. **Preparación de Datos:** Deduplicación estricta por identificador, división estratificada 80/20 antes del modelado supervisado, codificación de variables nominales (`OneHotEncoder`) y escalado con `StandardScaler` reservado para K-Means.
-4. **Modelado:** Construcción de pipelines de segmentación (K-Means + PCA), clasificación (Decision Tree y Random Forest) y regresión continua (Decision Tree e HistGradientBoosting) con optimización mediante `RandomizedSearchCV`.
-5. **Evaluación:** Contraste técnico contra KPIs predefinidos, cálculo de matrices de confusión, estudio de residuos e inspección de sobreajuste entre splits de *train* y *test*.
-6. **Despliegue y Reproducibilidad:** Exportación de artefactos entrenados (`.joblib` / `.zip`), trazabilidad de código y estructuración de reportes ejecutivos.
+| Fase | Actividades y evidencias |
+|---|---|
+| **Comprensión del negocio** | Delimitación del problema, usos previstos, objetivos y métricas relevantes. |
+| **Comprensión de los datos** | Revisión de distribución, calidad, duplicados, características y asociaciones con popularidad. |
+| **Preparación** | Deduplicación, definición de variables objetivo, selección de predictores, particiones y transformaciones. |
+| **Modelado** | K-Means, Decision Tree, Random Forest e HistGradientBoosting, con pipelines y búsqueda de hiperparámetros. |
+| **Evaluación** | Silueta, F1 macro, recall, precisión, matrices de confusión, MAE, R², validación cruzada y residuos. |
+| **Entrega y documentación** | Notebooks, CSV de métricas, modelos serializados, gráficos, informe y presentación. **No se declara despliegue productivo.** |
 
----
+## 6. Desarrollo y resultados de los modelos
 
-## 6. Modelos Implementados, Métricas e Interpretación
+### 6.1. Segmentación de canciones — K-Means
 
-### 6.1. Aprendizaje No Supervisado: Segmentación Musical (K-Means)
+El agrupamiento utiliza **nueve variables acústicas** imputadas y estandarizadas, **sin incluir `popularity`** como característica. Se contrastaron valores de K mediante inercia y coeficiente de silueta.
 
-* **Espacio de Características:** 9 atributos acústicos continuos (`duration_ms`, `danceability`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`) imputados por mediana y escalados con `StandardScaler`. Se excluyeron variables categóricas y `popularity` para que los grupos respondieran puramente a la naturaleza musical y no al éxito comercial.
-* **Selección de $K$:** La inercia geométrica determinó un punto de inflexión en $K = 4$. Aunque $K = 2$ maximiza el coeficiente de silueta (0,2474), una división binaria resulta poco informativa para la curaduría. Se adoptó $K = 4$ (Silhouette de 0,1596) como el balance adecuado entre cohesión y granularidad de negocio.
+- **K=2:** Silhouette Score **0,2456**, mejor valor de silueta registrado.
+- **K=4:** Silhouette Score **0,1613**, seleccionado para describir un catálogo con cuatro perfiles diferenciados operativamente.
+- **Interpretación:** la elección de K=4 prioriza granularidad descriptiva sobre la máxima separación geométrica; el puntaje de silueta exige evitar afirmaciones de separación fuerte.
 
-| Cluster | % Catálogo | N° Pistas | Perfil Acústico Dominante | Géneros Representativos | Plan de Acción / Curaduría |
-| --- | --- | --- | --- | --- | --- |
-| **0** | 15,46% | 13.870 | Acústico, instrumental, bajo tempo y sonoridad suave. | *sleep*, *ambient*, *classical*, *new-age* | Playlists de descanso, concentración y estudio; monitoreo de tiempo de permanencia. |
-| **1** | 8,11% | 7.277 | Grabaciones en vivo, alta presencia de voz hablada. | *comedy*, *pagode*, *sertanejo*, *samba* | Recomendación de sesiones en vivo y shows acústicos; control de skip rate. |
-| **2** | 32,88% | 29.505 | Rápido, enérgico, baja acústica, alta distorsión/volumen. | *black-metal*, *grindcore*, *death-metal*, *drum-and-bass* | Playlists de entrenamiento de alta intensidad, gaming y nichos de tempo elevado. |
-| **3** | 43,56% | 39.089 | Alta bailabilidad, valencia positiva, tempo moderado. | *dancehall*, *salsa*, *kids*, *forro* | Inserción en playlists para eventos sociales, virales y campañas de alto engagement. |
+| Cluster | Canciones | Participación | Caracterización exploratoria |
+|---|---:|---:|---|
+| **0** | 13.870 | 15,46 % | Mayor presencia de características acústicas/instrumentales y sonidos suaves. |
+| **1** | 7.277 | 8,11 % | Mayor presencia de voz hablada, grabaciones en vivo o contenido atípico. |
+| **2** | 29.505 | 32,88 % | Sonidos intensos, tempo elevado y géneros de carácter enérgico. |
+| **3** | 39.089 | 43,56 % | Alta bailabilidad y valencia más positiva, vinculadas a contextos sociales. |
 
-> *Nota:* El Cluster 1 absorbió el 47,01% de los valores extremos multivariados ($\vert{}z\vert{} > 3$), aislando de forma natural los contenidos atípicos (podcasts y comedia).
+Los nombres de los perfiles son interpretaciones del análisis, no categorías oficiales de Spotify. Al reentrenar K-Means, el número asignado a un perfil puede cambiar.
 
----
+![Mapa de calor de centroides acústicos](images/modelo_segmentacion/heatmap_centroides.png)
 
-### 6.2. Aprendizaje Supervisado: Clasificación de Popularidad
+**Archivos de apoyo:** [`02_clustering_kmeans.ipynb`](notebooks/02_clustering_kmeans.ipynb) · [`data/segmentation/`](data/segmentation/) · [`models/Segmentacion_modelo/`](models/Segmentacion_modelo/).
 
-El target continuo se discretizó en 3 niveles de negocio para preservar interpretabilidad: **Baja** (0–24 puntos, 37,2%), **Media** (25–49 puntos, 39,2%) y **Alta** (50–100 puntos, 23,6%). Los modelos evaluados fueron:
+### 6.2. Clasificación de popularidad — Decision Tree y Random Forest
 
-| Modelo | Accuracy Test | F1-Score Macro | Recall (Clase Alta) | Precision (Clase Alta) | Diagnóstico Técnico |
-| --- | --- | --- | --- | --- | --- |
-| **Decision Tree Base** | 62,44% | 0,6104 | 50,52% | 52,46% | Sobreajuste crítico ($F1_{\text{train}} = 0,993$ vs. $F1_{\text{test}} = 0,610$). |
-| **Decision Tree Opt.** | 64,28% | 0,6261 | 49,13% | 55,47% | Reduce varianza, pero castiga la detección de hits. |
-| **Random Forest Base** | 71,11% | 0,6955 | 54,22% | **68,29%** | Modelo conservador; alta precisión en tracks seleccionados. |
-| **Random Forest Opt.** | **71,16%** | **0,7027** | **64,47%** | 62,99% | **Modelo Seleccionado:** Maximiza la recuperación de oportunidades. |
+Se compararon árboles individuales y un ensamble **Random Forest (bagging)** para clasificar las canciones en tres rangos de popularidad.
 
-* **Traducción Operativa:** De las 4.242 canciones de alta popularidad del conjunto de test, el Random Forest optimizado rescata **2.735 canciones**. Frente a la versión base, recupera **+435 tracks de alta demanda**, asumiendo un costo de 539 falsas alarmas adicionales. Para una etapa inicial de screening de catálogo, el canje es favorable al negocio.
+| Modelo | Técnica | F1 macro en test |
+|---|---|---:|
+| Decision Tree base | Árbol individual | 0,6114 |
+| Decision Tree optimizado | Árbol con ajuste de hiperparámetros | 0,6435 |
+| Random Forest base | Ensamble tipo bagging | 0,6977 |
+| **Random Forest optimizado** | **Ensamble con ajuste de hiperparámetros** | **0,7007** |
 
----
+El ensamble supera a los árboles individuales en los experimentos registrados. La optimización del Random Forest incrementa el F1 macro de **0,6977 a 0,7007**, una **mejora pequeña** que no debe exagerarse.
 
-### 6.3. Aprendizaje Supervisado: Regresión Continua
+Además, se estudió una política alternativa de selección de canciones de popularidad alta:
 
-Modelado sobre el puntaje escalar directo de `popularity` (0 a 100) utilizando un pipeline con imputación preventiva y codificación one-hot sin escalado numérico.
+| Política | Recall de clase alta | Precisión de clase alta | Falsos positivos |
+|---|---:|---:|---:|
+| Predicción estándar (`argmax`) | 60,44 % | 64,62 % | 1.404 |
+| Umbral elegido en validación | 77,35 % | 54,59 % | 2.729 |
 
-| Modelo | MAE Test (Puntos) | $R^2$ Test | Diagnóstico de Ajuste |
-| --- | --- | --- | --- |
-| **Decision Tree Base** (`max_depth=6`) | 15,81 | 0,10 | **Subajuste (*underfitting*):** Estructura rígida incapaz de capturar varianza. |
-| **Decision Tree Optimizado** | 11,82 | 0,31 | Mejora sustancial en MAE, pero retiene sobreajuste ($R^2_{\text{train}} = 0,52$ vs. $R^2_{\text{test}} = 0,31$). |
-| **HistGradientBoosting Base** | 11,78 | 0,37 | Gran capacidad de generalización nativa sobre tabular grande. |
-| **HistGradientBoosting Optimizado** | **11,15** | **0,40** | **Modelo Seleccionado:** Menor error medio absoluto y máxima varianza explicada. |
+El umbral alternativo detecta más casos de popularidad alta, **a costa de un mayor número de falsos positivos**. Esta opción puede interesar en tareas de cribado inicial, pero no equivale automáticamente a una mejora global del clasificador.
 
-* **Factores Relevantes (Permutation Importance):** Al permutar aleatoriamente `track_genre`, el MAE se degrada incrementándose en **~6,924 puntos**, posicionando al género como el predictor más determinante por encima de las métricas acústicas puras.
-* **Residuos y Límites:** El modelo presenta sobreestimación en canciones con popularidad exacta de cero y ligera subestimación en canciones por sobre los 85 puntos, confirmando la existencia de factores externos no reflejados en el dataset.
+![Random Forest: comparación base y optimizado](images/modelos_clasificacion/comparacion_random_forest_optimizado_vs_base.png)
 
----
+**Archivos de apoyo:** [`03_modelos_clasificacion.ipynb`](notebooks/03_modelos_clasificacion.ipynb) · [`data/clasificacion/`](data/clasificacion/) · [`models/Clasificacion_modelos/`](models/Clasificacion_modelos/).
 
-## 7. Stack Tecnológico
+### 6.3. Regresión continua — Decision Tree e HistGradientBoosting
 
-| Capa | Herramientas | Justificación Técnica |
-| --- | --- | --- |
-| **Lenguaje / Entorno** | Python 3.10+, Google Colab, Jupyter Notebooks | Ecosistema estándar para computación científica reproducible. |
-| **Manipulación y Análisis** | `pandas`, `numpy` | Limpieza, estructuración matricial, agregaciones y cálculo vectorial. |
-| **Visualización** | `matplotlib`, `seaborn` | Generación de distribuciones, mapas de calor, matrices de confusión y diagnósticos residuales. |
-| **Modelado y Preprocesamiento** | `scikit-learn` (`Pipeline`, `ColumnTransformer`, `SimpleImputer`, `OneHotEncoder`, `StandardScaler`, `KMeans`, `PCA`, `DecisionTreeClassifier`, `RandomForestClassifier`, `DecisionTreeRegressor`, `HistGradientBoostingRegressor`, `RandomizedSearchCV`, `permutation_importance`) | Construcción de flujos de transformación libres de fuga de datos y algoritmos de optimización de hiperparámetros. |
-| **Evaluación de Clustering** | `scikit-learn.metrics` (`silhouette_score`, `silhouette_samples`) | Medición cuantitativa de cohesión y separación inter-cluster. |
-| **Serialización de Artefactos** | `joblib`, `json`, `zipfile` | Empaquetado binario de pipelines entrenados y registro de hiperparámetros óptimos. |
-| **Integridad y Red** | `hashlib` (SHA-256), `requests`, `io` | Validación criptográfica de datos crudos y descarga reproducible. |
-| **Control de Versiones** | Git, **Git LFS** (*Large File Storage*) | Trazabilidad de código y almacenamiento versionado de modelos serializados (`.joblib`, `.zip`). |
+Se entrenaron modelos para estimar directamente `popularity` entre 0 y 100. Se incluyó una referencia sencilla (`DummyRegressor`, mediana) para contextualizar la mejora predictiva.
 
----
+| Modelo | MAE en test ↓ | R² en test ↑ |
+|---|---:|---:|
+| DummyRegressor (mediana) | 17,12 | ≈ 0,0000 |
+| Decision Tree base | 15,81 | 0,1011 |
+| Decision Tree optimizado | 11,82 | 0,3059 |
+| HistGradientBoosting base | 11,78 | 0,3707 |
+| **HistGradientBoosting optimizado** | **11,15** | **0,4030** |
 
-## 8. Recomendaciones para el Negocio
+**HistGradientBoosting**, ensamble basado en boosting, alcanza el MAE más bajo y el R² más alto entre las alternativas registradas. Frente a `DummyRegressor`, reduce el MAE en aproximadamente **5,97 puntos**.
 
-1. **Estrategia Combinada de Cribado (Screening):** Implementar una arquitectura en cascada: utilizar el modelo *Random Forest optimizado* como filtro rápido para no descartar temas con alto potencial comercial, seguido por el modelo *HistGradientBoosting optimizado* para refinar la estimación cuantitativa de popularidad esperada.
-2. **Uso de Segmentos Acústicos para Curaduría Contextual:** Aprovechar los 4 grupos identificados por K-Means para poblar playlists temáticas y funcionales basadas en atributos objetivos del audio, sin supeditar la inclusión exclusivamente al nivel de reproducciones del artista.
-3. **Mantenimiento del Criterio Humano (*Human-in-the-loop*):** Dado que el MAE promedio se sitúa en ~11 puntos y los algoritmos basados en audio tienden a subestimar temas de nicho con baja exposición previa, las puntuaciones deben emplearse como herramientas de priorización y apoyo a la toma de decisiones, nunca como filtros de descarte automático.
+El análisis de **importancia por permutación** identifica a `track_genre` como la variable con mayor contribución predictiva para este modelo: al permutarla, el MAE aumenta aproximadamente **6,92 puntos**. Esta importancia **no demuestra causalidad**.
 
----
+![Comparación de modelos de regresión](images/modelos_regresion/comparativa_metricas_regresion.png)
 
-## 9. Estructura del Proyecto
+**Archivos de apoyo:** [`04_modelos_regresion.ipynb`](notebooks/04_modelos_regresion.ipynb) · [`data/regression/`](data/regression/) · [`models/Regresion_modelos/`](models/Regresion_modelos/).
+
+## 7. Optimización, ensambles y generalización
+
+### Optimización de hiperparámetros
+
+El proyecto emplea procedimientos de búsqueda como **`GridSearchCV`** y **`RandomizedSearchCV`** para explorar configuraciones de los modelos; el ajuste se realiza sobre datos de entrenamiento, conservando el conjunto de prueba para la evaluación final.
+
+La optimización incluyó parámetros estructurales de árboles, tamaño y diversidad del ensamble, regularización y tasa de aprendizaje. Las configuraciones seleccionadas en las ejecuciones guardadas se resumen a continuación:
+
+| Modelo optimizado | Parámetros seleccionados | Sentido de la decisión |
+|---|---|---|
+| **Decision Tree (clasificación)** | `criterion=entropy`, `max_depth=8`, `min_samples_leaf=1`, `min_samples_split=2` | Limitar complejidad del árbol frente a la versión sin ajuste. |
+| **Random Forest** | `n_estimators=150`, `max_features=0.5`, `min_samples_leaf=2`, `class_weight=balanced`, `max_depth=None` | Combinar múltiples árboles y ajustar la capacidad para las distintas clases. |
+| **Decision Tree (regresión)** | `min_samples_split=50`, `min_samples_leaf=10`, `max_features=0.5`, `max_depth=None` | Regularizar el ajuste a las observaciones de entrenamiento. |
+| **HistGradientBoosting** | `max_iter=300`, `learning_rate=0.1`, `max_depth=10`, `min_samples_leaf=20`, `l2_regularization=0.1` | Controlar aprendizaje, complejidad y regularización del ensamble. |
+
+Los parámetros son los reportados en las salidas almacenadas de los notebooks. La selección final debe justificarse por las métricas observadas y por la generalización, no por disponer de más hiperparámetros.
+
+### Aporte de las técnicas de ensamble
+
+- **Random Forest:** combina múltiples árboles (bagging) y consigue un F1 macro superior a los árboles individuales en clasificación.
+- **HistGradientBoosting:** construye modelos de forma secuencial (boosting) y mejora el MAE y R² frente a los árboles de regresión individuales en estos experimentos.
+
+Los resultados respaldan la utilidad de los ensambles **para este dataset y estas configuraciones**, sin establecer que siempre sean superiores en otros contextos.
+
+### Validación cruzada y sobreajuste
+
+| Experimento | Métrica media en validación cruzada | Desempeño de test | Diagnóstico |
+|---|---:|---:|---|
+| Random Forest base | F1 macro **0,6853** | F1 macro **0,6977** | Elevada brecha entre entrenamiento y validación. |
+| Random Forest optimizado | F1 macro **0,6885** | F1 macro **0,7007** | Brecha menor que el modelo base, pero todavía relevante. |
+| Decision Tree regresión optimizado | MAE **12,10** | MAE **11,82** | Generaliza peor que el boosting optimizado. |
+| HistGradientBoosting optimizado | MAE **11,33** | MAE **11,15** | Error de validación y test relativamente próximos. |
+
+Para clasificación, el F1 medio de entrenamiento de Random Forest optimizado en validación cruzada es **0,9493**, frente a **0,6885** en los pliegues de validación. La diferencia de **0,2608** indica que aún existe sobreajuste significativo. Para regresión, HistGradientBoosting presenta un MAE medio en validación de **11,33** y en test de **11,15**, lo que ofrece una señal más favorable de estabilidad.
+
+**Precaución:** no todas las métricas anteriores se calculan con idénticas particiones entre tareas. Las comparaciones válidas deben mantenerse dentro de cada experimento y su esquema de evaluación.
+
+## 8. Selección de modelos y conclusiones
+
+| Problema | Solución elegida | Fundamento | Condición de uso |
+|---|---|---|---|
+| **Segmentación** | K-Means con **K=4** | Proporciona cuatro perfiles interpretables, aunque con separación moderada/baja. | Describir segmentos, no inferir popularidad a partir del cluster por sí solo. |
+| **Clasificación** | **Random Forest optimizado** | Mayor F1 macro en test (**0,7007**); se dispone de evaluación adicional de la clase alta. | Considerar sobreajuste y elegir el umbral según el costo operativo de falsas alarmas. |
+| **Regresión** | **HistGradientBoosting optimizado** | Mejor MAE (**11,15**) y R² (**0,4030**) en test; supera a la referencia `DummyRegressor`. | Interpretar la estimación como aproximación con incertidumbre considerable. |
+
+**Conclusión general.** Los ensambles ofrecen las mejores métricas dentro de las alternativas evaluadas. La clasificación permite una **priorización por rangos de popularidad**, mientras que la regresión proporciona una estimación continua que conserva más detalle. K-Means agrega una perspectiva descriptiva del catálogo. Estas tres técnicas son complementarias, pero aún no se ha demostrado que incorporar los clusters como variables mejore los modelos supervisados.
+
+## 9. Limitaciones, sesgos y uso responsable
+
+1. **No causalidad.** Una asociación entre atributos y popularidad no garantiza que modificar una característica o realizar una campaña cambie el éxito comercial.
+2. **Variables externas ausentes.** El dataset no recoge directamente inversión publicitaria, exposición en redes, historial del artista, recomendaciones efectivas de la plataforma o cambios temporales en tendencias.
+3. **Sesgo de representación.** La distribución por género y popularidad puede favorecer patrones mayoritarios; las decisiones automáticas de exclusión podrían perjudicar contenidos de nicho.
+4. **Información temporal limitada.** La evaluación sobre una partición aleatoria del mismo dataset no demuestra capacidad de anticipar nuevos lanzamientos en períodos futuros.
+5. **Etiquetado y deduplicación.** Conservar la primera aparición de `track_id` resuelve duplicados de pista, pero puede simplificar asignaciones múltiples de género.
+6. **Incertidumbre residual.** Un MAE aproximado de 11 puntos y un R² de 0,4030 dejan margen importante de error. La clasificación también presenta sobreajuste.
+7. **Reproducibilidad de entorno.** El repositorio todavía no incluye un archivo de dependencias con versiones fijadas; además, algunas rutas internas de los notebooks deben alinearse con la organización actual del proyecto.
+8. **Seguridad de artefactos.** Los archivos `joblib` deben cargarse únicamente desde fuentes confiables, ya que la deserialización puede ejecutar código.
+
+Las predicciones deben usarse como **apoyo para análisis humano**, no como criterio único para excluir o valorar obras musicales.
+
+## 10. Recomendaciones para el negocio
+
+**Priorización de catálogo.** Utilizar la clasificación para identificar canciones que merecen revisión adicional, considerando que un umbral más permisivo puede aumentar el recall a cambio de más alertas incorrectas.
+
+**Estimación complementaria.** Consultar la regresión para obtener una aproximación continua del puntaje, acompañada del margen de error observado. No presentar el valor estimado como un pronóstico exacto.
+
+**Curaduría temática.** Emplear los perfiles K-Means como insumo descriptivo para organizar listas de reproducción por características acústicas. Validar su utilidad mediante comportamiento real de usuarios antes de recomendar un despliegue operativo.
+
+**Evaluación de impacto.** Antes de asociar los modelos con mejoras en retención, descubrimiento o inversión publicitaria, diseñar pruebas controladas con métricas observables. Los beneficios económicos mencionados en escenarios hipotéticos no constituyen retornos medidos.
+
+## 11. Stack tecnológico
+
+| Capa | Herramientas utilizadas | Función en el proyecto |
+|---|---|---|
+| **Lenguaje y entorno** | **Python**, Jupyter Notebook; compatibilidad con **Google Colab** en los notebooks | Exploración, experimentación y documentación ejecutable. |
+| **Datos** | `pandas`, `numpy` | Carga de CSV, depuración, estadísticas y transformaciones tabulares. |
+| **Visualización** | `matplotlib`, `seaborn` | Distribuciones, curvas, matrices de confusión, mapas de calor y residuos. |
+| **Preprocesamiento** | `scikit-learn`: `Pipeline`, `ColumnTransformer`, `SimpleImputer`, `StandardScaler`, `OneHotEncoder`, `TargetEncoder` | Transformaciones organizadas dentro de los experimentos. |
+| **Modelos supervisados** | `DecisionTreeClassifier`, `RandomForestClassifier`, `DecisionTreeRegressor`, `HistGradientBoostingRegressor`, `DummyRegressor` | Clasificación, regresión, ensambles y referencia base. |
+| **Aprendizaje no supervisado** | `KMeans`, `PCA` | Agrupamiento de perfiles acústicos y visualización/reducción dimensional. |
+| **Optimización y evaluación** | `GridSearchCV`, `RandomizedSearchCV`, `StratifiedKFold`, `cross_validate`, métricas de `sklearn.metrics`, `permutation_importance` | Búsqueda, validación y evaluación comparativa. |
+| **Archivos e integridad** | `joblib`, `json`, `zipfile`, `shutil`, `hashlib`, `io`, `pathlib`, `requests` | Exportación de resultados, empaquetado, comprobación SHA-256 y carga local/remota. |
+| **Control de versiones** | **Git, GitHub y Git LFS** | Historial del código y almacenamiento de los archivos ZIP de modelos. |
+
+**Sobre versiones:** los notebooks usan `TargetEncoder` de scikit-learn, por lo que se necesita una versión de la biblioteca que lo incluya (**1.3 o posterior**). La ausencia actual de un entorno bloqueado impide asegurar equivalencia exacta de resultados entre equipos y versiones. El uso de Git LFS está configurado para archivos `*.zip`; los modelos `*.joblib` no están incluidos en esa regla actual.
+
+## 12. Organización y ejecución del repositorio
+
+### Estructura actual
 
 ```text
-proyecto-ml-spotify/
-│
-├── README.md                                          # Informe técnico del proyecto (CRISP-DM)
-├── .gitattributes                                     # Configuración de Git LFS para artefactos binarios
-│
+Ev3-ml-spotify/
+├── README.md
+├── .gitattributes
 ├── data/
-│   ├── raw/
-│   │   └── Spotify_Tracks_Dataset.csv                 # Dataset original (~114k registros)
-│   │
-│   ├── processed/                                     # Datos depurados y particiones libres de fuga
-│   │   ├── Spotify_Tracks_Procesado.csv               # Dataset limpio (89.741 registros únicos)
-│   │   ├── X_train_ready.csv                          # Características de entrenamiento (71.793)
-│   │   ├── X_test_ready.csv                           # Características de prueba (17.950)
-│   │   ├── y_train_ready.csv                          # Target continuo de entrenamiento
-│   │   └── y_test_ready.csv                           # Target continuo de prueba
-│   │
-│   ├── segmentation/                                  # Datos y evaluación de K-Means
-│   │   ├── X_segmentacion_original.csv                # 9 variables acústicas sin estandarizar
-│   │   ├── X_segmentacion_escalado.csv                # Variables escaladas con StandardScaler
-│   │   ├── contexto_segmentacion.csv                  # Metadatos cualitativos desacoplados
-│   │   ├── centroides_originales.csv                  # Centroides en unidades físicas de audio
-│   │   ├── centroides_estandarizados.csv              # Centroides en escala Z-score
-│   │   ├── evaluacion_kmeans.csv                      # Histórico de Inercia y Silueta (K=1 a 10)
-│   │   └── resultado_segmentacion.csv                 # Asignación final de cluster por canción
-│   │
-│   └── regression/                                    # Evaluación del modelado supervisado
-│       ├── comparativa_modelos.csv                    # Tabla comparativa de métricas (MAE, R²)
-│       ├── importancia_caracteristicas.csv            # Permutation importance de los predictores
-│       └── predicciones_test.csv                      # Valores reales vs. predichos en prueba
-│
-├── images/                                            # Evidencias gráficas e infografías
-│   ├── extras/
-│   │   ├── clasificacion_de_segmentos.png             # Infografía: caracterización y plan de acción K-Means
-│   │   ├── infografia_clasificacion.png               # Infografía: comparativa Decision Tree vs. Random Forest
-│   │   ├── infografia_regresion.png                   # Infografía: diagnóstico y métricas de regresión
-│   │   └── matriz_de_responsabilidades.png            # Matriz formal de asignación de roles
+│   ├── raw/                   # Dataset original
+│   ├── processed/             # Dataset depurado y archivos de entrenamiento/prueba
+│   ├── segmentation/          # Variables, centroides y resultados de K-Means
+│   ├── clasificacion/         # Métricas y escenarios de clasificación
+│   └── regression/            # Métricas, residuos y predicciones de regresión
+├── images/
+│   ├── extras/                # Infografías y matriz de responsabilidades
 │   ├── modelo_segmentacion/
-│   │   ├── PCA2.png                                   # Proyección bidimensional de clusters
-│   │   ├── elbow_method.png                           # Curva de inercia geométrica (Elbow)
-│   │   ├── heatmap_centroides.png                     # Mapa de calor de perfiles acústicos
-│   │   ├── silhouette_analysis.png                    # Coeficiente de silueta por número de clusters
-│   │   ├── top5_generos_predominantes.png             # Distribución de géneros por cluster
-│   │   └── varianza_explicada_acumulada.png           # Varianza acumulada por componentes principales
 │   ├── modelos_clasificacion/
-│   │   ├── desempeño_base_vs_optmizado_dctree.png     # Curvas de ajuste árbol base vs. podado
-│   │   ├── distribucion_popularidad_3_grupos.png      # Distribución de clases (Baja, Media, Alta)
-│   │   ├── importancia_variables_dctree_optm.png      # Importancia relativa de variables
-│   │   ├── matriz_confusion_dctree.png                # Matriz de confusión árbol base
-│   │   ├── matriz_confusion_rdforest.png              # Matriz de confusión Random Forest base
-│   │   ├── rd_forest_optmizado_matriz_confusion.png   # Matriz de confusión Random Forest optimizado
-│   │   └── rforest_base_Vs_optimizado.png             # Comparativa visual de desempeño ensamble
 │   └── modelos_regresion/
-│       ├── comparativa_metricas_regresion.png         # Comparativa de barras MAE y R²
-│       ├── estructura_arbol_base.png                  # Diagrama del árbol de regresión inicial
-│       ├── estructura_arbol_optimizado.png            # Diagrama del árbol de regresión regularizado
-│       ├── importancia_permutacion_hgb.png            # Importancia de permutación de predictores
-│       └── residuos_real_vs_predicho_hgb.png          # Gráfico de dispersión y análisis de residuos
-│
-├── models/                                            # Artefactos y modelos serializados (Git LFS)
-│   ├── Segmentacion_modelo/
-│   │   ├── preprocessor_clustering.joblib             # Pipeline de imputación y escalado
-│   │   ├── kmeans_final.joblib                        # Modelo K-Means calibrado (K=4)
-│   │   ├── pca_completo.joblib                        # Transformador PCA (9 dimensiones)
-│   │   └── pca_2d.joblib                              # Transformador PCA (2 dimensiones)
-│   ├── Clasificacion_modelos/
-│   │   ├── Clasificacion_decision_tree/
-│   │   │   ├── decision_tree_multiclase_base.zip
-│   │   │   └── decision_tree_multiclase_optimizado.zip
-│   │   └── Clasificacion_RandomForest/
-│   │       ├── random_forest_multiclase_base.zip
-│   │       └── random_forest_multiclase_optimizado.zip
-│   └── Regresion_modelos/
-│       ├── decision_tree/
-│       │   ├── pipeline_decision_tree_optimizado.zip
-│       │   └── mejores_hiperparametros_tree.zip
-│       └── histgradient_boosting/
-│           ├── pipeline_hgb_optimizado.zip            # Pipeline final de regresión continua
-│           └── mejores_hiperparametros_hgb.zip        # Metadatos JSON de hiperparámetros óptimos
-│
-├── notebooks/                                         # Cuadernos Jupyter reproducibles
-│   ├── 01_eda_limpieza_datos.ipynb                    # Verificación SHA-256, deduplicación y análisis univariado
-│   ├── 02_clustering_kmeans.ipynb                     # Pipeline de K-Means, silueta, codo y proyección PCA
-│   ├── 03_modelos_clasificacion.ipynb                 # Clasificación multiclase, optimización y matrices
-│   └── 04_modelos_regresion.ipynb                     # Modelado continuo de popularidad y análisis de residuos
-│
-└── reports/                                           # Entregables técnicos y defensas
-    ├── Informe_Machine_Learning_2.pdf                 # Informe técnico consolidado
-    ├── Informe_Machine_Learning_2.md                 # Informe técnico consolidado en formato .md
-    └── presentacion_modelos_spotify.pptx              # Soporte visual para defensa técnica
-
+├── models/
+│   ├── Segmentacion_modelo/   # K-Means, preprocesador y PCA (.joblib)
+│   ├── Clasificacion_modelos/ # Modelos empaquetados (.zip, Git LFS)
+│   └── Regresion_modelos/     # Modelos y parámetros empaquetados (.zip, Git LFS)
+├── notebooks/
+│   ├── 01_eda_limpieza_datos.ipynb
+│   ├── 02_clustering_kmeans.ipynb
+│   ├── 03_modelos_clasificacion.ipynb
+│   └── 04_modelos_regresion.ipynb
+└── reports/
+    ├── Informe_Machine_Learning.md
+    └── Presentacion_EP3_Spotify.pptx
 ```
 
----
+### Preparación del entorno
 
-## 10. Instrucciones de Instalación y Reproducibilidad
+**1. Clonar el repositorio y descargar los artefactos gestionados mediante Git LFS:**
 
-1. **Clonar el repositorio con soporte para archivos grandes:**
 ```bash
-git clone https://github.com/<tu-usuario>/proyecto-ml-spotify.git
-cd proyecto-ml-spotify
+git clone https://github.com/Zevk4/Ev3-ml-spotify.git
+cd Ev3-ml-spotify
+git lfs install
 git lfs pull
-
 ```
 
-2. **Crear y activar un entorno virtual:**
+**2. Crear un entorno virtual:**
+
 ```bash
-python -m venv venv
-source venv/bin/activate        # En Linux/macOS
-# venv\Scripts\activate         # En Windows
-
+python -m venv .venv
 ```
 
-3. **Instalar dependencias requeridas:**
+Activación en Windows PowerShell: `.\.venv\Scripts\Activate.ps1` (si la política de PowerShell lo permite). En Linux/macOS: `source .venv/bin/activate`.
+
+**3. Instalar las bibliotecas de trabajo:**
+
 ```bash
-pip install --upgrade pip
-pip install pandas numpy scikit-learn matplotlib seaborn joblib requests
-
+python -m pip install --upgrade pip
+python -m pip install "scikit-learn>=1.3" pandas numpy matplotlib seaborn joblib requests jupyterlab ipykernel
 ```
 
-4. **Ejecución secuencial de los notebooks:**
-Los cuadernos están ordenados numéricamente para preservar la trazabilidad analítica de los datos:
-* `notebooks/01_eda_limpieza_datos.ipynb`: Valida el hash SHA-256 de los datos crudos, remueve duplicados y genera los conjuntos limpios en `data/processed/`.
-* `notebooks/02_clustering_kmeans.ipynb`: Ejecuta el escalado, calcula métricas de inercia y silueta, y entrena el modelo de segmentación.
-* `notebooks/03_modelos_clasificacion.ipynb`: Construye los pipelines de clasificación binaria y multiclase, ejecutando la validación cruzada y los reportes de clasificación.
-* `notebooks/04_modelos_regresion.ipynb`: Ajusta los modelos de regresión continua y genera los gráficos de dispersión de residuos y permutación de características.
+Este comando permite preparar un entorno orientativo, pero **no sustituye un archivo de dependencias fijadas**. Para una reproducción estricta, se recomienda registrar y validar las versiones efectivamente utilizadas en el proyecto.
+
+**4. Abrir los notebooks desde la raíz del repositorio:**
+
+```bash
+python -m jupyter lab
+```
+
+Orden lógico de lectura y ejecución: **01 EDA → 02 K-Means → 03 Clasificación → 04 Regresión**.
+
+> **Estado de reproducibilidad:** los notebooks originales todavía contienen algunas rutas de entrada, como `data/Spotify_Tracks_Dataset.csv`, y carpetas de exportación que no coinciden con la estructura final `data/raw/` y `models/`. Antes de afirmar que el proyecto puede ejecutarse íntegramente sin ajustes, deben corregirse esas rutas y verificarse una ejecución completa en un entorno limpio. Los archivos de métricas existentes se mantienen como evidencia de las ejecuciones documentadas.
+
+### Uso de modelos exportados
+
+Los ZIP en `models/Clasificacion_modelos/` y `models/Regresion_modelos/` se almacenan mediante **Git LFS**. Es necesario recuperar su contenido (`git lfs pull`) antes de extraerlos; un archivo de puntero LFS no es el modelo. Los artefactos `.joblib` deben cargarse únicamente cuando se conoce su procedencia y se ha comprobado su compatibilidad de versiones.
+
+## 13. Matriz de responsabilidades
+
+El proyecto se desarrolló en equipo, con responsabilidades técnicas diferenciadas y colaboración transversal en el análisis exploratorio y la interpretación de resultados.
+
+| Integrante | Rol técnico específico | Entregable directo |
+|---|---|---|
+| **Diego Améstica** | Análisis exploratorio, ingeniería de atributos y modelo de clustering no supervisado (**K-Means + PCA**). | `02_clustering_kmeans.ipynb`, artefactos de segmentación y documentación de perfiles. |
+| **Gino Andrades** | Análisis exploratorio, formulación de pipelines y modelos de regresión continua (**Decision Tree vs. HistGradientBoosting**). | `04_modelos_regresion.ipynb`, calibración de hiperparámetros y análisis de residuos. |
+| **Agustín Cáceres** | Análisis exploratorio, esquemas de estratificación y modelos de clasificación supervisada (**Decision Tree vs. Random Forest**). | `03_modelos_clasificacion.ipynb`, optimización de métricas de clase alta y matrices de confusión. |
+
+![Matriz de responsabilidades del equipo](images/extras/matriz_de_responsabilidades.png)
+
+## 14. Trazabilidad y mejoras futuras
+
+**Fuentes de las cifras principales:**
+
+- **Clustering:** [`data/segmentation/`](data/segmentation/), especialmente los archivos de evaluación de K-Means y resumen de perfiles.
+- **Clasificación:** [`data/clasificacion/`](data/clasificacion/), que contiene comparaciones de modelos, validación cruzada y resultados de umbral.
+- **Regresión:** [`data/regression/`](data/regression/), con comparativas, referencia Dummy, validación cruzada y evaluación de predicciones.
+- **Visualizaciones:** [`images/`](images/); los notebooks contienen los procedimientos de análisis correspondientes.
+
+Las siguientes tareas se proponen como **mejoras futuras, no como funcionalidades ya realizadas**:
+
+1. Centralizar rutas de entrada/salida y validar una ejecución completa desde una copia limpia del repositorio.
+2. Incorporar `requirements.txt` o un entorno con versiones fijadas, además de controles automáticos de integridad.
 
 ---
-
-## 11. Matriz de Responsabilidades
-
-| Integrante | Rol Técnico Específico | Entregable Directo |
-| --- | --- | --- |
-| **Diego Améstica** | Análisis exploratorio, ingeniería de atributos y modelo de clustering no supervisado (K-Means + PCA). | `02_clustering_kmeans.ipynb`, artefactos de segmentación y documentación de perfiles. |
-| **Gino Andrades** | Análisis exploratorio, formulación de pipelines y modelos de regresión continua (Decision Tree vs. HistGradientBoosting). | `04_modelos_regresion.ipynb`, calibración de hiperparámetros y análisis de residuos. |
-| **Agustín Cáceres** | Análisis exploratorio, esquemas de estratificación y modelos de clasificación supervisada (Decision Tree vs. Random Forest). | `03_modelos_clasificacion.ipynb`, optimización de métricas de clase alta y matrices de confusión. |
-
-> *Nota:* Para verificar el desglose detallado de las actividades realizadas por cada integrante, consulte la infografía desarrollada, la cual se encuentra en la ruta images/extras/matriz_de_responsabilidades.png.
 
