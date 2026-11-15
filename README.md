@@ -174,7 +174,7 @@ Además, se estudió una política alternativa de selección de canciones de pop
 
 El umbral alternativo detecta más casos de popularidad alta, **a costa de un mayor número de falsos positivos**. Esta opción puede interesar en tareas de cribado inicial, pero no equivale automáticamente a una mejora global del clasificador.
 
-![Random Forest: comparación base y optimizado](images/modelos_clasificacion/comparacion_random_forest_optimizado_vs_base.png)
+![Random Forest: Multiclase](images/modelos_clasificacion/matriz_confusion_multiclase.png)
 
 **Archivos de apoyo:** [`03_modelos_clasificacion.ipynb`](notebooks/03_modelos_clasificacion.ipynb) · [`data/clasificacion/`](data/clasificacion/) · [`models/Clasificacion_modelos/`](models/Clasificacion_modelos/).
 
@@ -290,29 +290,42 @@ Las predicciones deben usarse como **apoyo para análisis humano**, no como crit
 
 ```text
 Ev3-ml-spotify/
-├── README.md
-├── .gitattributes
-├── data/
-│   ├── raw/                   # Dataset original
-│   ├── processed/             # Dataset depurado y archivos de entrenamiento/prueba
-│   ├── segmentation/          # Variables, centroides y resultados de K-Means
-│   ├── clasificacion/         # Métricas y escenarios de clasificación
-│   └── regression/            # Métricas, residuos y predicciones de regresión
-├── images/
-│   ├── extras/                # Infografías y matriz de responsabilidades
-│   ├── modelo_segmentacion/
-│   ├── modelos_clasificacion/
-│   └── modelos_regresion/
-├── models/
-│   ├── Segmentacion_modelo/   # K-Means, preprocesador y PCA (.joblib)
-│   ├── Clasificacion_modelos/ # Modelos empaquetados (.zip, Git LFS)
-│   └── Regresion_modelos/     # Modelos y parámetros empaquetados (.zip, Git LFS)
-├── notebooks/
+│
+├── README.md                      # Documentación técnica general del proyecto.
+├── .gitattributes                 # Configuración de Git LFS.
+│
+├── data/                          # Datos y resultados experimentales.
+│   ├── raw/                       # Dataset original sin modificaciones.
+│   ├── processed/                 # Datos depurados y conjuntos de entrenamiento y prueba.
+│   ├── segmentation/              # Variables acústicas, centroides, métricas y perfiles K-Means.
+│   ├── clasificacion/             # Métricas, validación cruzada y escenarios de clasificación.
+│   └── regression/                # Métricas, predicciones, validación y análisis de errores.
+│
+├── images/                        # Evidencias visuales del análisis y modelado.
+│   ├── extras/                    # Infografías ejecutivas y matriz de responsabilidades.
+│   ├── modelo_segmentacion/       # Gráficos de K-Means, PCA y caracterización de clusters.
+│   ├── modelos_clasificacion/     # Matrices de confusión, comparaciones y curvas de evaluación.
+│   └── modelos_regresion/         # Comparativas, árboles, residuos e importancia de variables.
+│
+├── models/                        # Modelos entrenados y artefactos serializados.
+│   │
+│   ├── Segmentacion_modelo/       # Modelo K-Means, preprocesador y transformadores PCA.
+│   │
+│   ├── Clasificacion_modelos/     # Modelos de clasificación base y optimizados.
+│   │   ├── Clasificacion_decision_tree/   # Árboles de decisión multiclase.
+│   │   └── Clasificacion_RandomForest/    # Ensambles Random Forest.
+│   │
+│   └── Regresion_modelos/         # Pipelines y configuraciones de regresión.
+│       ├── decision_tree/         # Árbol de regresión optimizado e hiperparámetros.
+│       └── histgradient_boosting/ # Modelo de boosting optimizado e hiperparámetros.
+│
+├── notebooks/                     # Desarrollo analítico y experimental en Jupyter.
 │   ├── 01_eda_limpieza_datos.ipynb
 │   ├── 02_clustering_kmeans.ipynb
 │   ├── 03_modelos_clasificacion.ipynb
 │   └── 04_modelos_regresion.ipynb
-└── reports/
+│
+└── reports/                       # Documentación y entregables del proyecto.
     ├── Informe_Machine_Learning.md
     └── Presentacion_EP3_Spotify.pptx
 ```
@@ -352,8 +365,6 @@ python -m jupyter lab
 ```
 
 Orden lógico de lectura y ejecución: **01 EDA → 02 K-Means → 03 Clasificación → 04 Regresión**.
-
-> **Estado de reproducibilidad:** los notebooks originales todavía contienen algunas rutas de entrada, como `data/Spotify_Tracks_Dataset.csv`, y carpetas de exportación que no coinciden con la estructura final `data/raw/` y `models/`. Antes de afirmar que el proyecto puede ejecutarse íntegramente sin ajustes, deben corregirse esas rutas y verificarse una ejecución completa en un entorno limpio. Los archivos de métricas existentes se mantienen como evidencia de las ejecuciones documentadas.
 
 ### Uso de modelos exportados
 
