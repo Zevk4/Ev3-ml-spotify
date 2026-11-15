@@ -1,0 +1,3 @@
+Politica,VP alta,FP alta,FN alta,Promociones,Ingreso supuesto CLP,Costo supuesto CLP,Beneficio neto supuesto CLP,ROI supuesto %
+RF optimizado · argmax,2564.0,1404.0,1678.0,3968.0,128200000.0,79360000.0,48840000.0,61.542338709677416
+RF optimizado · umbral de validación,3281.0,2729.0,961.0,6010.0,164050000.0,120200000.0,43850000.0,36.480865224625624

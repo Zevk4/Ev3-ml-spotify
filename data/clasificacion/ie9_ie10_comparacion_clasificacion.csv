@@ -1,0 +1,5 @@
+Modelo,Familia,F1 macro
+Decision Tree base,Individual,0.611380463739696
+Decision Tree optimizado,Individual + tuning,0.6435206771254884
+Random Forest base,Bagging,0.6976622659162306
+Random Forest optimizado,Bagging + tuning,0.7006944345486364

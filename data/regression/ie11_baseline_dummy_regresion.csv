@@ -1,0 +1,3 @@
+Modelo,MAE,R²
+DummyRegressor (mediana),17.11967240514792,-7.093390006485123e-06
+HistGradientBoosting optimizado,11.148299963300774,0.40295077452192984

@@ -1,0 +1,9 @@
+Modelo,K,Hits reales en Top-K,Precision@K,Lift@K
+Random Forest base,250,236,0.944,3.9943083451202264
+Random Forest base,500,442,0.884,3.7404328147100427
+Random Forest base,1000,819,0.819,3.4654009900990097
+Random Forest base,2500,1829,0.7316,3.0955889674681756
+Random Forest optimizado,250,237,0.948,4.011233380480905
+Random Forest optimizado,500,452,0.904,3.8250579915134373
+Random Forest optimizado,1000,822,0.822,3.478094766619519
+Random Forest optimizado,2500,1841,0.7364,3.1158990099009904

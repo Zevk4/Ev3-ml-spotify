@@ -1,0 +1,3 @@
+Modelo,VP alta,FP alta,FN alta,Promociones,Ingreso supuesto CLP,Costo supuesto CLP,Beneficio neto supuesto CLP,ROI supuesto %
+RF base,2395.0,1192.0,1847.0,3587.0,119750000.0,71740000.0,48010000.0,66.92221912461667
+RF optimizado,2564.0,1404.0,1678.0,3968.0,128200000.0,79360000.0,48840000.0,61.542338709677416
