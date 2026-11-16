@@ -233,8 +233,6 @@ Los resultados respaldan la utilidad de los ensambles **para este dataset y esta
 
 Para clasificación, el F1 medio de entrenamiento de Random Forest optimizado en validación cruzada es **0,9493**, frente a **0,6885** en los pliegues de validación. La diferencia de **0,2608** indica que aún existe sobreajuste significativo. Para regresión, HistGradientBoosting presenta un MAE medio en validación de **11,33** y en test de **11,15**, lo que ofrece una señal más favorable de estabilidad.
 
-**Precaución:** no todas las métricas anteriores se calculan con idénticas particiones entre tareas. Las comparaciones válidas deben mantenerse dentro de cada experimento y su esquema de evaluación.
-
 ## 8. Selección de modelos y conclusiones
 
 | Problema | Solución elegida | Fundamento | Condición de uso |
