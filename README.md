@@ -48,7 +48,7 @@ La variable `popularity` representa un indicador disponible en el dataset. No eq
 
 ### Objetivo general
 
-Desarrollar, optimizar y comparar modelos supervisados y no supervisados, siguiendo CRISP-DM, para extraer patrones acústicos y generar información útil en el análisis, curaduría y priorización de contenidos musicales.
+Identificar perfiles acústicos mediante técnicas no supervisadas y desarrollar, optimizar y comparar modelos supervisados bajo la metodología CRISP-DM, con el propósito de generar información útil para el análisis, la curaduría y la priorización de contenidos musicales.
 
 ### Objetivos específicos
 
@@ -63,10 +63,8 @@ Desarrollar, optimizar y comparar modelos supervisados y no supervisados, siguie
 
 | Área | Indicador | Interpretación | Uso analítico |
 |---|---|---|---|
-| Clasificación | **F1 macro** | Promedio del F1 de cada clase, sin ponderar por su frecuencia. **Mayor es mejor**. | Comparar modelos multiclase de forma equilibrada. |
-| Clasificación de popularidad alta | **Recall y precisión** | Recall: proporción de canciones populares detectadas. Precisión: proporción de alertas correctas. | Analizar el compromiso entre oportunidades identificadas y falsas alarmas. |
-| Regresión | **MAE** | Promedio de errores absolutos, en puntos de popularidad. **Menor es mejor**. | Cuantificar la distancia habitual entre valor real y estimado. |
-| Regresión | **R²** | Proporción de variabilidad explicada en el conjunto evaluado. **Mayor es mejor**. | Complementar el MAE con capacidad explicativa. |
+| Clasificación | **F1 macro, Recall y precisión** | El F1 macro promedia el rendimiento de cada clase sin ponderar por frecuencia (mayor es mejor). Recall y precisión miden la tasa de detección y acierto en la clase de popularidad alta. | Comparar modelos multiclase de forma equilibrada y evaluar el compromiso entre oportunidades detectadas y falsas alarmas al ajustar políticas de decisión. |
+| Regresión | **MAE y R²** | El **MAE** mide el promedio de errores absolutos en puntos de popularidad **(menor es mejor)**, mientras que el R² indica la proporción de variabilidad explicada **(mayor es mejor)**. | Cuantificar la distancia habitual entre el valor real y el estimado, complementando la magnitud del error con la capacidad explicativa del modelo. |
 | Segmentación | **Silueta e inercia** | Miden, respectivamente, separación relativa de grupos y compactación interna. | Contrastar soluciones de agrupamiento y justificar la granularidad elegida. |
 
 La elección de un modelo considera tanto sus métricas como su capacidad de generalización y la utilidad práctica de sus resultados. **Una métrica de clasificación no es directamente comparable con una de regresión**, porque resuelven tareas distintas.
@@ -139,6 +137,10 @@ El agrupamiento utiliza **nueve variables acústicas** imputadas y estandarizada
 - **K=4:** Silhouette Score **0,1613**, seleccionado para describir un catálogo con cuatro perfiles diferenciados operativamente.
 - **Interpretación:** la elección de K=4 prioriza granularidad descriptiva sobre la máxima separación geométrica; el puntaje de silueta exige evitar afirmaciones de separación fuerte.
 
+**Caracterización de clústeres:**
+
+![Mapa de calor de centroides acústicos](images/modelo_segmentacion/heatmap_centroides.png)
+
 | Cluster | Canciones | Participación | Caracterización exploratoria |
 |---|---:|---:|---|
 | **0** | 13.870 | 15,46 % | Mayor presencia de características acústicas/instrumentales y sonidos suaves. |
@@ -148,9 +150,8 @@ El agrupamiento utiliza **nueve variables acústicas** imputadas y estandarizada
 
 Los nombres de los perfiles son interpretaciones del análisis, no categorías oficiales de Spotify. Al reentrenar K-Means, el número asignado a un perfil puede cambiar.
 
-![Mapa de calor de centroides acústicos](images/modelo_segmentacion/heatmap_centroides.png)
-
 **Archivos de apoyo:** [`02_clustering_kmeans.ipynb`](notebooks/02_clustering_kmeans.ipynb) · [`data/segmentation/`](data/segmentation/) · [`models/Segmentacion_modelo/`](models/Segmentacion_modelo/).
+
 
 ### 6.2. Clasificación de popularidad — Decision Tree y Random Forest
 
@@ -176,6 +177,12 @@ El umbral alternativo detecta más casos de popularidad alta, **a costa de un ma
 
 ![Random Forest: Multiclase](images/modelos_clasificacion/matriz_confusion_multiclase.png)
 
+Comportamiento base (Original — argmax): La diagonal principal concentra la mayor proporción de aciertos, destacando especialmente en las clases Baja (5.424 aciertos) y Media (4.807 aciertos). La mayoría de los errores ocurre entre categorías adyacentes —por ejemplo, canciones de popularidad Media clasificadas como Baja (1.246 casos) o Alta (977 casos), y canciones de clase Alta subestimadas como Media (1.082 casos)—, algo esperable al discretizar una variable continua. Las confusiones extremas entre Baja y Alta (427 y 596 casos, respectivamente) se mantienen relativamente acotadas.   
+
+Efecto del umbral ajustado (Umbral elegido sin usar test): Reducir la exigencia para asignar la etiqueta Alta incrementa los verdaderos positivos de esa categoría de 2.564 a 3.281 (+717 canciones recuperadas), disminuyendo de forma importante sus falsos negativos hacia Media (de 1.082 a 559) y hacia Baja (de 596 a 402).   
+
+Compensación entre clases: Esta mayor cobertura sobre la clase Alta se obtiene absorbiendo casos limítrofes de las otras categorías. En particular, las canciones de popularidad Media etiquetadas erróneamente como Alta se duplican (pasando de 977 a 1.965), mientras que las de clase Baja confundidas como Alta suben de 427 a 764, lo que reduce los aciertos en la diagonal de Media (de 4.807 a 3.895) y de Baja (de 5.424 a 5.202).
+
 **Archivos de apoyo:** [`03_modelos_clasificacion.ipynb`](notebooks/03_modelos_clasificacion.ipynb) · [`data/clasificacion/`](data/clasificacion/) · [`models/Clasificacion_modelos/`](models/Clasificacion_modelos/).
 
 ### 6.3. Regresión continua — Decision Tree e HistGradientBoosting
@@ -190,13 +197,13 @@ Se entrenaron modelos para estimar directamente `popularity` entre 0 y 100. Se i
 | HistGradientBoosting base | 11,78 | 0,3707 |
 | **HistGradientBoosting optimizado** | **11,15** | **0,4030** |
 
-**HistGradientBoosting**, ensamble basado en boosting, alcanza el MAE más bajo y el R² más alto entre las alternativas registradas. Frente a `DummyRegressor`, reduce el MAE en aproximadamente **5,97 puntos**.
-
-El análisis de **importancia por permutación** identifica a `track_genre` como la variable con mayor contribución predictiva para este modelo: al permutarla, el MAE aumenta aproximadamente **6,92 puntos**. Esta importancia **no demuestra causalidad**.
-
 ![Comparación de modelos de regresión](images/modelos_regresion/comparativa_metricas_regresion.png)
 
 **Archivos de apoyo:** [`04_modelos_regresion.ipynb`](notebooks/04_modelos_regresion.ipynb) · [`data/regression/`](data/regression/) · [`models/Regresion_modelos/`](models/Regresion_modelos/).
+
+**HistGradientBoosting**, ensamble basado en boosting, alcanza el MAE más bajo y el R² más alto entre las alternativas registradas. Frente a `DummyRegressor`, reduce el MAE en aproximadamente **5,97 puntos**.
+
+El análisis de **importancia por permutación** identifica a `track_genre` como la variable con mayor contribución predictiva para este modelo: al permutarla, el MAE aumenta aproximadamente **6,92 puntos**. Esta importancia **no demuestra causalidad**.
 
 ## 7. Optimización, ensambles y generalización
 
@@ -258,13 +265,13 @@ Las predicciones deben usarse como **apoyo para análisis humano**, no como crit
 
 ## 10. Recomendaciones para el negocio
 
-**Priorización de catálogo.** Utilizar la clasificación para identificar canciones que merecen revisión adicional, considerando que un umbral más permisivo puede aumentar el recall a cambio de más alertas incorrectas.
+**Priorización de catálogo:** Utilizar la agrupación por niveles de popularidad (baja, media o alta) como un primer filtro para detectar canciones con potencial que merezcan revisión del equipo editorial. Si el objetivo es no dejar pasar posibles éxitos, conviene aplicar un criterio de selección más amplio, asumiendo que también se revisarán algunas canciones de desempeño moderado.
 
-**Estimación complementaria.** Consultar la regresión para obtener una aproximación continua del puntaje, acompañada del margen de error observado. No presentar el valor estimado como un pronóstico exacto.
+**Referencia para evaluar potencial:** Utilizar el puntaje estimado (de 0 a 100) como guía para comparar canciones entre sí, considerando su margen habitual de variación (cercano a 11 puntos) y sin interpretarlo como un pronóstico exacto de éxito comercial.
 
-**Curaduría temática.** Emplear los perfiles K-Means como insumo descriptivo para organizar listas de reproducción por características acústicas. Validar su utilidad mediante comportamiento real de usuarios antes de recomendar un despliegue operativo.
+**Selección temática de playlists:** Aprovechar los cuatro perfiles musicales identificados (acústico y tranquilo, en vivo y hablado, rápido e intenso, y bailable y alegre) para armar listas según el momento de escucha. Antes de extenderlo a todo el catálogo, conviene validar si mejora la respuesta del público midiendo canciones guardadas, omisiones o reproducciones completas.   
 
-**Evaluación de impacto.** Antes de asociar los modelos con mejoras en retención, descubrimiento o inversión publicitaria, diseñar pruebas controladas con métricas observables. Los beneficios económicos mencionados en escenarios hipotéticos no constituyen retornos medidos.
+**Validación antes de invertir:** Realizar pruebas piloto con grupos acotados de oyentes antes de vincular estas herramientas con mejoras en retención o inversión publicitaria, ya que los beneficios estimados en este estudio son escenarios proyectados y no retornos comprobados.
 
 ## 11. Stack tecnológico
 
